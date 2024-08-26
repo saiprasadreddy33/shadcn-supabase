@@ -1,14 +1,21 @@
-
-"use client"
-
-import { useState, useMemo } from "react"
+'use client'
+import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
+import { getCurrentUser } from '@/services/authService';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import {
   Dialog,
   DialogContent,
@@ -18,12 +25,19 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog"
-
+import { FileIcon, UploadIcon,EyeIcon,Activity,
+  ArrowUpRight,
+  CircleUser,
+  CreditCard,
+  DollarSign,
+  Menu,
+  Package2,
+  Search,
+  Users, } from "lucide-react";
+  import toast from "react-hot-toast";
+import { format } from 'date-fns'
 export default function ShipmentsTable() {
-  const [shipments, setShipments] = useState([
-
-  ])
-  
+  const [shipments, setShipments] = useState([])
   const [filters, setFilters] = useState({
     carrier: [],
     status: [],
@@ -37,9 +51,57 @@ export default function ShipmentsTable() {
     order: "desc",
   })
   const [search, setSearch] = useState("")
-  const [isAddingShipment, setIsAddingShipment] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [user, setUser] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [sheetContent, setSheetContent] = useState(null)
+
+  useEffect(() => {
+    const fetchShipments = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/shipments');
+        if (!response.ok) {
+          throw new Error('Failed to fetch shipments');
+        }
+        const data = await response.json();
+        setShipments(data);
+      } catch (error) {
+        console.error('Error fetching shipments:', error);
+      }
+    };
+
+    fetchShipments();
+  }, []);
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+        console.log(currentUser)
+      } catch (error) {
+        console.error('Error fetching user details:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchUser();
+  }, []);
+  async function checkAuthStatus() {
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        console.log('User is logged in:', user);
+      } else {
+        console.log('No user is logged in');
+      }
+    } catch (error) {
+      console.error('Error checking authentication status:', error);
+    }
+  }
   const filteredShipments = useMemo(() => {
     return shipments
       .filter((shipment) => {
@@ -56,10 +118,11 @@ export default function ShipmentsTable() {
           return false
         }
         return (
-          shipment.id.toLowerCase().includes(search.toLowerCase()) ||
-          shipment.tracking.toLowerCase().includes(search.toLowerCase()) ||
-          shipment.recipient.toLowerCase().includes(search.toLowerCase()) ||
-          shipment.address.toLowerCase().includes(search.toLowerCase())
+          shipment.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
+          shipment.customerNumber.toLowerCase().includes(search.toLowerCase()) ||
+          shipment.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
+          shipment.deliveryNumber.toLowerCase().includes(search.toLowerCase()) ||
+          shipment.shipToAddress.toLowerCase().includes(search.toLowerCase())
         )
       })
       .sort((a, b) => {
@@ -70,6 +133,7 @@ export default function ShipmentsTable() {
         }
       })
   }, [shipments, filters, sort, search])
+
   const handleFilterChange = (type, value) => {
     if (type === "carrier") {
       setFilters({
@@ -95,6 +159,28 @@ export default function ShipmentsTable() {
       })
     }
   }
+  const handleViewTrackingHistory = (shipment) => {
+    setSelectedShipment(shipment)
+    setSheetContent('tracking')
+    setIsSheetOpen(true)
+  }
+
+  const handleViewPdfAttachment = (shipment) => {
+    setSelectedShipment(shipment)
+    setSheetContent('pdf')
+    setIsSheetOpen(true)
+  }
+
+  /*const handleCloseSheet = () => {
+    setSelectedShipment(null)
+    setSheetContent(null)
+    setIsSheetOpen(false)
+  }*/
+   /* const handleDownloadPdf = () => {
+      // Implement PDF download functionality here
+      console.log("Downloading PDF for shipment:", selectedShipment)
+    }*/
+
   const handleSortChange = (key) => {
     if (sort.key === key) {
       setSort({
@@ -108,24 +194,69 @@ export default function ShipmentsTable() {
       })
     }
   }
+
   const handleSearchChange = (e) => {
     setSearch(e.target.value)
   }
+
   const handleViewMore = (shipment) => {
     setSelectedShipment(shipment)
     setIsSheetOpen(true)
   }
+
   const handleCloseSheet = () => {
     setSelectedShipment(null)
     setIsSheetOpen(false)
   }
+
   const handleDownloadPdf = () => {
-    window.open(selectedShipment.pdf, "_blank")
+    // Implement PDF download functionality here
+    toast.success("Downloading PDF for shipment");
+    console.log("Downloading PDF for shipment:", selectedShipment)
   }
-  const handleAddShipment = (newShipment) => {
-    setShipments([...shipments, { id: `SHP${shipments.length + 1}`, ...newShipment }]);
-    setIsAddingShipment(false);
-  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0]
+    if (file && file.type === 'application/pdf') {
+      setUploadedFile(file)
+    } else {
+      //alert('Please upload a PDF file')
+      toast.error("Please upload a PDF file before extracting");
+    }
+  }
+
+  const handleExtract = async () => {
+    if (uploadedFile) {
+        setIsLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
+            const response = await fetch('http://localhost:5000/api/pdf', {
+              method: 'POST',
+              body: formData,
+          });
+            if (!response.ok) {
+              const errorText = await response.text(); 
+              throw new Error(`Failed to extract data from PDF: ${errorText}`);
+          }
+
+            const data = await response.json();
+            toast.success("Extracted successfully!");
+            setShipments(prevShipments => [...prevShipments, data]);
+            setUploadedFile(null);
+            setIsDialogOpen(false);
+        } catch (error) {
+            console.error('Error extracting data:', error);
+             toast.error("Failed to extract data from PDF!");
+        } finally {
+            setIsLoading(false);
+        }
+    } else {
+        //alert('Please upload a PDF file before extracting');
+        toast.error("Please upload a PDF file before extracting");
+    }
+};
+
   return (
     <div className="w-full">
       <Card>
@@ -150,25 +281,7 @@ export default function ShipmentsTable() {
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Filter by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={filters.carrier.includes("FedEx")}
-                  onCheckedChange={() => handleFilterChange("carrier", "FedEx")}
-                >
-                  FedEx
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={filters.carrier.includes("UPS")}
-                  onCheckedChange={() => handleFilterChange("carrier", "UPS")}
-                >
-                  UPS
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={filters.carrier.includes("USPS")}
-                  onCheckedChange={() => handleFilterChange("carrier", "USPS")}
-                >
-                  USPS
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
+                
                 <DropdownMenuCheckboxItem
                   checked={filters.status.includes("In Transit")}
                   onCheckedChange={() => handleFilterChange("status", "In Transit")}
@@ -229,122 +342,209 @@ export default function ShipmentsTable() {
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup value={sort.key} onValueChange={(key) => handleSortChange(key)}>
                   <DropdownMenuRadioItem value="date">Date</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="tracking">Tracking</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="carrier">Carrier</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="status">Status</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="recipient">Recipient</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="invoiceNumber">Invoice Number</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="customerNumber">Customer Number</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="orderNumber">Order Number</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="deliveryNumber">Delivery Number</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog>
-                <DialogTrigger>Add New Shipments</DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Shipments</DialogTitle>
-                    <DialogDescription>
-                      This action cannot be undone. This will permanently delete your account
-                      and remove your data from our servers.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                <Button type="submit">Extract</Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>Add New Shipments</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Upload PDF Invoice</DialogTitle>
+                  <DialogDescription>
+                    Upload to extract shipment details.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid w-full max-w-sm items-center gap-1.5">
+                  <Label htmlFor="pdf-upload"></Label>
+                  <div className="flex items-center justify-center w-full">
+                    <label
+                      htmlFor="pdf-upload"
+                      className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
+                    >
+                      {!uploadedFile ? (
+        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+          <UploadIcon className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" />
+          <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+            <span className="font-semibold">Click to upload</span>
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">PDF files only</p>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <FileIcon className="w-4 h-4" />
+          <span>{uploadedFile.name}</span>
+        </div>
+      )}
+      <Input
+        id="pdf-upload"
+        type="file"
+        accept=".pdf"
+        className="hidden"
+        onChange={handleFileUpload}
+      />
+    </label>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" onClick={handleExtract} disabled={isLoading}>
+                    {isLoading ? 'Extracting...' : 'Extract'}
+                  </Button>
                 </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-auto border rounded-lg">
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">Tracking</TableHead>
-                  <TableHead>customerName</TableHead>
-                  <TableHead>invoiceNumber</TableHead>
-                  <TableHead>orderNumber</TableHead>
-                  <TableHead>deliveryNumber</TableHead>
-                  <TableHead>shipToAddress</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredShipments.map((shipment) => (
-                  <TableRow key={shipment.id}>
-                    <TableCell className="font-medium">{shipment.tracking}</TableCell>
-                    <TableCell>{shipment.carrier}</TableCell>
-                    <TableCell>{shipment.status}</TableCell>
-                    <TableCell>{shipment.recipient}</TableCell>
-                    <TableCell>{shipment.address}</TableCell>
-                    <TableCell>{shipment.date}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoveHorizontalIcon className="w-4 h-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewMore(shipment)}>
-                            <FileIcon className="mr-2 h-4 w-4" />
-                            View Shipment
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+          <div className="w-full overflow-hidden border rounded-lg">
+            <ScrollArea className="h-[calc(100vh-200px)]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">Tracking</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Invoice Number</TableHead>
+                    <TableHead>Customer Name</TableHead>
+                    <TableHead>Order Number</TableHead>
+                    <TableHead>Delivery Number</TableHead>
+                    <TableHead className="max-w-[200px]">Ship To Address</TableHead>
+                    <TableHead>PDF</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredShipments.map((shipment) => (
+                    <TableRow key={shipment.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">
+                        {shipment.id ? (
+                          <Button
+                            variant="link"
+                            onClick={() => handleViewTrackingHistory(shipment)}
+                            className="p-0 h-auto font-normal"
+                          >
+                            <Badge variant="outline" className="cursor-pointer">
+                              {shipment.id}
+                            </Badge>
+                          </Button>
+                        ) : (
+                          <Badge variant="outline">N/A</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{format(new Date(shipment.date), 'dd-MM-yyyy')}</TableCell>
+                      <TableCell>{shipment.invoiceNumber}</TableCell>
+                      <TableCell>{shipment.customerNumber}</TableCell>
+                      <TableCell>{shipment.orderNumber}</TableCell>
+                      <TableCell>{shipment.deliveryNumber}</TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <div className="truncate" title={shipment.shipToAddress}>
+                          {shipment.shipToAddress}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewPdfAttachment(shipment)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                          <span className="sr-only">View Shipment</span>
+                        </Button>
+                      </TableCell>
+
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           </div>
         </CardContent>
       </Card>
-      {selectedShipment && (
-        <Sheet onClose={handleCloseSheet}>
-          <SheetContent side="right" className="w-full max-w-md">
-            <SheetHeader>
-              <SheetTitle>Shipment Details</SheetTitle>
-              <SheetDescription>View details and download the shipment PDF.</SheetDescription>
-            </SheetHeader>
-            <div className="p-6 space-y-4">
-              <div>
-                <Label>Tracking Number</Label>
-                <p className="font-medium">{selectedShipment.tracking}</p>
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="w-full max-w-md">
+          <SheetHeader>
+            <SheetTitle>
+              {sheetContent === 'tracking' ? 'Tracking History' : 'PDF Attachment'}
+            </SheetTitle>
+            <SheetDescription>
+              {sheetContent === 'tracking'
+                ? 'View the tracking history for this shipment.'
+                : 'View and download the PDF attachment for this shipment.'}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="py-6">
+            {sheetContent === 'tracking' && selectedShipment && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Tracking Number</Label>
+                  <p className="font-medium">{selectedShipment.id}</p>
+                </div>
+                <div>
+                  <Label>Current Status</Label>
+                  <p className="font-medium">{selectedShipment.status || <Badge variant="secondary">Completed</Badge>}</p>
+                </div>
+                <div>
+                  <Label>Tracking History</Label>
+                  <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+                    {selectedShipment.trackingHistory ? (
+                      selectedShipment.trackingHistory.map((event, index) => (
+                        <div key={index} className="mb-4 last:mb-0">
+                          <p className="font-medium">{event.status}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(event.timestamp), 'dd-MM-yyyy HH:mm')}
+                          </p>
+                          <p className="text-sm">{event.location}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <Accordion type="single" collapsible>
+  <AccordionItem value="item-1">
+    <AccordionTrigger>History</AccordionTrigger>
+    <AccordionContent>
+                      <p>No tracking history available.</p>
+                      </AccordionContent>
+  </AccordionItem>
+</Accordion>
+                    )}
+                    
+                  </ScrollArea>
+                </div>
+                <Label>Shipment Detail</Label>
+                <Card x-chunk="dashboard-01-chunk-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Revenue
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{selectedShipment.invoiceTotal}</div>
+              
+            </CardContent>
+          </Card>
               </div>
-              <div>
-                <Label>customerName</Label>
-                <p className="font-medium">{selectedShipment.customerName}</p>
+            )}
+            {sheetContent === 'pdf' && selectedShipment && (
+              <div className="space-y-4">
+                <div>
+                  <Label>PDF Attachment</Label>
+                  <p className="font-medium">{selectedShipment.pdfAttachment || 'N/A'}</p>
+                </div>
+                <div>
+                  <Button onClick={handleDownloadPdf}>
+                    <DownloadIcon className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label>invoiceNumber</Label>
-                <p className="font-medium">{selectedShipment.invoiceNumber}</p>
-              </div>
-              <div>
-                <Label>orderNumber</Label>
-                <p className="font-medium">{selectedShipment.orderNumber}</p>
-              </div>
-              <div>
-                <Label>deliveryNumber</Label>
-                <p className="font-medium">{selectedShipment.deliveryNumber}</p>
-              </div>
-              <div>
-                <Label>Date</Label>
-                <p className="font-medium">{selectedShipment.date}</p>
-              </div>
-              <div>
-                <Label>shipToAddress</Label>
-                <p className="font-medium">{selectedShipment.shipToAddress}</p>
-              </div>
-            </div>
-            <SheetFooter>
-              <Button onClick={handleDownloadPdf}>
-                <DownloadIcon className="mr-2 h-4 w-4" />
-                Download PDF
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-      )}
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
@@ -371,7 +571,7 @@ function DownloadIcon(props) {
 }
 
 
-function FileIcon(props) {
+/*function FileIcon(props) {
   return (
     <svg
       {...props}
@@ -390,7 +590,7 @@ function FileIcon(props) {
     </svg>
   )
 }
-
+*/
 
 function FilterIcon(props) {
   return (

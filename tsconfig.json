@@ -21,6 +21,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/components/component/table.jsx", "src/components/AddShipmentForm.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/components/component/table.jsx", "src/components/AddShipmentForm.js", "src/app/api/pdf/route.js"],
   "exclude": ["node_modules"]
 }

@@ -53,7 +53,7 @@ export function getMenuList(pathname: string): Group[] {
 
             {
               href: "/dashboard",
-              label: "Inventory",
+              label: "Data",
               active: pathname === "/posts/new"
             }
           ]
