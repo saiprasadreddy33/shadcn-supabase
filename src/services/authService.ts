@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://be-shadn.onrender.com/api';
 
 export const signInWithEmail = async (email: string, password: string) => {
     try {
