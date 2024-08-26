@@ -1,8 +1,8 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { LayoutGrid, LogOut, User } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
@@ -21,9 +21,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-//const router = useRouter();
+import { getCurrentUser } from "@/services/authService";
 
 export function UserNav() {
+  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    }
+
+    fetchUser();
+  }, []);
+
+  const handleLogOut = () => {
+
+    router.push("/");
+  };
+
+  const avatarFallbackText = user
+    ? `${user.first_name?.charAt(0) || ""}${user.last_name?.charAt(0) || ""}`
+    : "";
+
   return (
     <DropdownMenu>
       <TooltipProvider disableHoverableContent>
@@ -36,7 +61,9 @@ export function UserNav() {
               >
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="#" alt="Avatar" />
-                  <AvatarFallback className="bg-transparent">IP</AvatarFallback>
+                  <AvatarFallback className="bg-transparent">
+                    {avatarFallbackText}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -47,12 +74,23 @@ export function UserNav() {
 
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Sai Prasad</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              ipsai047@gmail.com
-            </p>
-          </div>
+          {user ? (
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">
+                {user.first_name} {user.last_name}
+              </p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {user.email}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">User</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                No email available
+              </p>
+            </div>
+          )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -63,14 +101,17 @@ export function UserNav() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem className="hover:cursor-pointer" asChild>
-            <Link href="/account" className="flex items-center">
+            <Link href="/users" className="flex items-center">
               <User className="w-4 h-4 mr-3 text-muted-foreground" />
               Account
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="hover:cursor-pointer" onClick={(handleLogOut) => {}}>
+        <DropdownMenuItem
+          className="hover:cursor-pointer"
+          onClick={handleLogOut}
+        >
           <LogOut className="w-4 h-4 mr-3 text-muted-foreground" />
           Sign out
         </DropdownMenuItem>
