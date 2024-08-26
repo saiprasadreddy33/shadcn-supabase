@@ -62,7 +62,7 @@ export default function ShipmentsTable() {
   useEffect(() => {
     const fetchShipments = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/shipments');
+        const response = await fetch('https://be-shadn.onrender.com/api/shipments');
         if (!response.ok) {
           throw new Error('Failed to fetch shipments');
         }
