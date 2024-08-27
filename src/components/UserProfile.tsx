@@ -36,8 +36,8 @@ const UserProfile: React.FC = () => {
 
   return (
     <div className=" bg-gray-100 p-2">
-      <div className="container mx-auto max-w-4xl">
-        <Card className="shadow-lg">
+      <div className="container mx-auto max-w-1xl">
+        <Card className="shadow-md">
           <CardHeader className="flex flex-col items-center">
             <Avatar className="w-24 h-24 mb-4">
               <AvatarImage src="https://avatars.dicebear.com/api/initials/example.svg" alt="User Avatar" />
@@ -45,7 +45,7 @@ const UserProfile: React.FC = () => {
             </Avatar>
             <CardTitle className="text-3xl font-bold">{user.first_name || user.email}</CardTitle>
             <CardDescription>{user.email}</CardDescription>
-            <Badge variant="secondary" className="mt-2">User ID: {user.userId}</Badge>
+            <Badge variant="secondary" className="mt-2">User ID: {user.id}</Badge>
           </CardHeader>
           <CardContent className="mt-6">
             <Accordion type="single" collapsible className="w-full">
@@ -74,7 +74,7 @@ const UserProfile: React.FC = () => {
                     </div>
                     <div className="flex flex-col">
                       <span className="font-semibold text-gray-600">User ID</span>
-                      <span className="text-lg text-gray-800">{user.userId}</span>
+                      <span className="text-lg text-gray-800">{user.id}</span>
                     </div>
                   </div>
                 </AccordionContent>

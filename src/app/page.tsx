@@ -44,7 +44,7 @@ export default function HomePage() {
       </main>
       <footer className="w-full py-6 bg-slate-100">
   <div className="container mx-auto px-4 flex items-center justify-between">
-    <p className="text-sm text-gray-600">© 2024 Shipments Tracker. All rights reserved.</p>
+    <p className="text-sm text-gray-600">© 2024 Shipments Tracker.</p>
     <nav className="flex space-x-4">
       {/* Add any footer navigation links here if needed */}
     </nav>

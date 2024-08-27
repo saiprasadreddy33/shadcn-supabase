@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { getCurrentUser } from "@/services/authService";
+import { getCurrentUser, logout } from "@/services/authService";
 
 export function UserNav() {
   const [user, setUser] = useState<any>(null);
@@ -41,7 +41,7 @@ export function UserNav() {
   }, []);
 
   const handleLogOut = () => {
-
+    logout();
     router.push("/");
   };
 

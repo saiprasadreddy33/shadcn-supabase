@@ -1,14 +1,22 @@
 import axios from 'axios';
 
-const API_URL = 'https://be-shadn.onrender.com/api';
+const API_URL = ' https://be-shadn.onrender.com/api';
 
 export const signInWithEmail = async (email: string, password: string) => {
     try {
         const response = await axios.post(`${API_URL}/login`, { email, password });
+        console.log(response.data)
         const { token } = response.data;
-        localStorage.setItem('authToken', token); // Store token
-        return response.data;
+        if (token) {
+            localStorage.setItem('authToken', token); 
+            console.log(token)
+            return response.data;
+            
+        } else {
+            throw new Error('Token not received from server');
+        }
     } catch (error) {
+        console.error('Sign in error:', error);
         throw new Error('Sign in failed');
     }
 };
@@ -23,7 +31,11 @@ export const signUpWithEmail = async (email: string, password: string, firstName
         throw new Error('Sign up failed');
     }
 };
+export const logout = () => {
+    localStorage.removeItem('authToken');
 
+    localStorage.clear(); 
+};
 
 export const getCurrentUser = async () => {
     try {

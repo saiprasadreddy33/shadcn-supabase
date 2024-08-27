@@ -4,11 +4,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
+import { ScrollArea,ScrollBar  } from "@/components/ui/scroll-area"
 import { getCurrentUser } from '@/services/authService';
 import {
   Accordion,
@@ -39,12 +39,9 @@ import { format } from 'date-fns'
 export default function ShipmentsTable() {
   const [shipments, setShipments] = useState([])
   const [filters, setFilters] = useState({
-    carrier: [],
     status: [],
-    date: {
-      from: null,
-      to: null,
-    },
+    dateFrom: null,
+    dateTo: null,
   })
   const [sort, setSort] = useState({
     key: "date",
@@ -61,20 +58,39 @@ export default function ShipmentsTable() {
 
   useEffect(() => {
     const fetchShipments = async () => {
+      if (!user) return; // Wait until user is loaded
+      
+      const token = localStorage.getItem('authToken'); // Retrieve the token
+      if (!token) {
+        console.error('No token found');
+        return;
+      }
+
+      setIsLoading(true);
       try {
-        const response = await fetch('https://be-shadn.onrender.com/api/shipments');
+        const response = await fetch(`https://be-shadn.onrender.com/api/shipments`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`, // Attach the token to the Authorization header
+            'Content-Type': 'application/json',
+          },
+        });
+
         if (!response.ok) {
           throw new Error('Failed to fetch shipments');
         }
+
         const data = await response.json();
         setShipments(data);
       } catch (error) {
         console.error('Error fetching shipments:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchShipments();
-  }, []);
+  }, [user]);
   useEffect(() => {
     async function fetchUser() {
       try {
@@ -105,59 +121,43 @@ export default function ShipmentsTable() {
   const filteredShipments = useMemo(() => {
     return shipments
       .filter((shipment) => {
-        if (filters.carrier.length > 0 && !filters.carrier.includes(shipment.carrier)) {
-          return false
-        }
+        // Status filter
         if (filters.status.length > 0 && !filters.status.includes(shipment.status)) {
-          return false
+          return false;
         }
-        if (filters.date.from && new Date(shipment.date) < new Date(filters.date.from)) {
-          return false
+        // Date range filter
+        if (filters.dateFrom && new Date(shipment.date) < new Date(filters.dateFrom)) {
+          return false;
         }
-        if (filters.date.to && new Date(shipment.date) > new Date(filters.date.to)) {
-          return false
+        if (filters.dateTo && new Date(shipment.date) > new Date(filters.dateTo)) {
+          return false;
         }
-        return (
-          shipment.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-          shipment.customerNumber.toLowerCase().includes(search.toLowerCase()) ||
-          shipment.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-          shipment.deliveryNumber.toLowerCase().includes(search.toLowerCase()) ||
-          shipment.shipToAddress.toLowerCase().includes(search.toLowerCase())
-        )
+        // Search
+        if (search) {
+          const searchLower = search.toLowerCase();
+          return (
+            shipment.id ||
+            shipment.invoiceNumber.toLowerCase().includes(searchLower) ||
+            shipment.customerNumber.toLowerCase().includes(searchLower) ||
+            shipment.orderNumber.toLowerCase().includes(searchLower) ||
+            shipment.deliveryNumber.toLowerCase().includes(searchLower) ||
+            shipment.shipToAddress.toLowerCase().includes(searchLower)
+          );
+        }
+        return true;
       })
       .sort((a, b) => {
-        if (sort.order === "asc") {
-          return a[sort.key] > b[sort.key] ? 1 : -1
-        } else {
-          return a[sort.key] < b[sort.key] ? 1 : -1
-        }
-      })
+        if (a[sort.key] < b[sort.key]) return sort.direction === 'asc' ? -1 : 1;
+        if (a[sort.key] > b[sort.key]) return sort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
   }, [shipments, filters, sort, search])
 
   const handleFilterChange = (type, value) => {
-    if (type === "carrier") {
-      setFilters({
-        ...filters,
-        carrier: filters.carrier.includes(value)
-          ? filters.carrier.filter((item) => item !== value)
-          : [...filters.carrier, value],
-      })
-    } else if (type === "status") {
-      setFilters({
-        ...filters,
-        status: filters.status.includes(value)
-          ? filters.status.filter((item) => item !== value)
-          : [...filters.status, value],
-      })
-    } else if (type === "date") {
-      setFilters({
-        ...filters,
-        date: {
-          from: value.from,
-          to: value.to,
-        },
-      })
-    }
+    setFilters(prev => ({
+      ...prev,
+      [type]: value
+    }));
   }
   const handleViewTrackingHistory = (shipment) => {
     setSelectedShipment(shipment)
@@ -176,10 +176,26 @@ export default function ShipmentsTable() {
     setSheetContent(null)
     setIsSheetOpen(false)
   }*/
-   /* const handleDownloadPdf = () => {
-      // Implement PDF download functionality here
-      console.log("Downloading PDF for shipment:", selectedShipment)
-    }*/
+    const handleDownloadPdf = async () => {
+      console.log(selectedShipment)
+      if (selectedShipment && selectedShipment.fileUrl) {
+        
+          try {
+              // Check if the PDF URL is a valid URL
+              const url = new URL(selectedShipment.fileUrl);
+  
+              // Open the PDF URL in a new tab for download
+              window.open(url.href, '_blank');
+          } catch (error) {
+              console.error('Error downloading PDF:', error);
+              toast.error("Failed to download PDF!");
+          }
+      } else {
+          toast.error("No PDF attachment available.");
+      }
+  };
+  
+  
 
   const handleSortChange = (key) => {
     if (sort.key === key) {
@@ -209,12 +225,6 @@ export default function ShipmentsTable() {
     setIsSheetOpen(false)
   }
 
-  const handleDownloadPdf = () => {
-    // Implement PDF download functionality here
-    toast.success("Downloading PDF for shipment");
-    console.log("Downloading PDF for shipment:", selectedShipment)
-  }
-
   const handleFileUpload = (event) => {
     const file = event.target.files[0]
     if (file && file.type === 'application/pdf') {
@@ -231,14 +241,23 @@ export default function ShipmentsTable() {
         try {
             const formData = new FormData();
             formData.append('file', uploadedFile);
-            const response = await fetch('http://localhost:5000/api/pdf', {
-              method: 'POST',
-              body: formData,
-          });
+
+            // Retrieve the JWT token from local storage
+            const token = localStorage.getItem('authToken');
+            console.log(token)
+
+            const response = await fetch('https://be-shadn.onrender.com/api/pdf', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`, 
+                },
+                body: formData,
+            });
+
             if (!response.ok) {
-              const errorText = await response.text(); 
-              throw new Error(`Failed to extract data from PDF: ${errorText}`);
-          }
+                const errorText = await response.text(); 
+                throw new Error(`Failed to extract data from PDF: ${errorText}`);
+            }
 
             const data = await response.json();
             toast.success("Extracted successfully!");
@@ -247,15 +266,15 @@ export default function ShipmentsTable() {
             setIsDialogOpen(false);
         } catch (error) {
             console.error('Error extracting data:', error);
-             toast.error("Failed to extract data from PDF!");
+            toast.error("Failed to extract data from PDF!");
         } finally {
             setIsLoading(false);
         }
     } else {
-        //alert('Please upload a PDF file before extracting');
         toast.error("Please upload a PDF file before extracting");
     }
 };
+
 
   return (
     <div className="w-full">
@@ -301,32 +320,23 @@ export default function ShipmentsTable() {
                   Pending
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuSeparator />
-                <div className="px-4 py-2">
-                  <Label htmlFor="date-from">Date range</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="date"
-                      id="date-from"
-                      value={filters.date.from || ""}
-                      onChange={(e) =>
-                        handleFilterChange("date", {
-                          from: e.target.value,
-                          to: filters.date.to,
-                        })
-                      }
-                    />
-                    <Input
-                      type="date"
-                      id="date-to"
-                      value={filters.date.to || ""}
-                      onChange={(e) =>
-                        handleFilterChange("date", {
-                          from: filters.date.from,
-                          to: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                <div className="px-2 py-1.5">
+                  <Label htmlFor="date-from">From Date</Label>
+                  <Input
+                    type="date"
+                    id="date-from"
+                    value={filters.dateFrom || ''}
+                    onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+                  />
+                </div>
+                <div className="px-2 py-1.5">
+                  <Label htmlFor="date-to">To Date</Label>
+                  <Input
+                    type="date"
+                    id="date-to"
+                    value={filters.dateTo || ''}
+                    onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+                  />
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -401,65 +411,67 @@ export default function ShipmentsTable() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="w-full overflow-hidden border rounded-lg">
+          <div className="w-full overflow-auto">
             <ScrollArea className="h-[calc(100vh-200px)]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px]">Tracking</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Invoice Number</TableHead>
-                    <TableHead>Customer Name</TableHead>
-                    <TableHead>Order Number</TableHead>
-                    <TableHead>Delivery Number</TableHead>
-                    <TableHead className="max-w-[200px]">Ship To Address</TableHead>
-                    <TableHead>PDF</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredShipments.map((shipment) => (
-                    <TableRow key={shipment.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">
-                        {shipment.id ? (
-                          <Button
-                            variant="link"
-                            onClick={() => handleViewTrackingHistory(shipment)}
-                            className="p-0 h-auto font-normal"
-                          >
-                            <Badge variant="outline" className="cursor-pointer">
-                              {shipment.id}
-                            </Badge>
-                          </Button>
-                        ) : (
-                          <Badge variant="outline">N/A</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{format(new Date(shipment.date), 'dd-MM-yyyy')}</TableCell>
-                      <TableCell>{shipment.invoiceNumber}</TableCell>
-                      <TableCell>{shipment.customerNumber}</TableCell>
-                      <TableCell>{shipment.orderNumber}</TableCell>
-                      <TableCell>{shipment.deliveryNumber}</TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <div className="truncate" title={shipment.shipToAddress}>
-                          {shipment.shipToAddress}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewPdfAttachment(shipment)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                          <span className="sr-only">View Shipment</span>
-                        </Button>
-                      </TableCell>
-
+              <div className="w-full min-w-[800px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Tracking</TableHead>
+                      <TableHead className="w-[120px]">Date</TableHead>
+                      <TableHead className="w-[150px]">Invoice Number</TableHead>
+                      <TableHead className="w-[150px]">Customer Name</TableHead>
+                      <TableHead className="w-[150px]">Order Number</TableHead>
+                      <TableHead className="w-[150px]">Delivery Number</TableHead>
+                      <TableHead className="w-[200px]">Ship To Address</TableHead>
+                      <TableHead className="w-[80px]">PDF</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredShipments.map((shipment) => (
+                      <TableRow key={shipment.id} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">
+                          {shipment.id ? (
+                            <Button
+                              variant="link"
+                              onClick={() => handleViewTrackingHistory(shipment)}
+                              className="p-0 h-auto font-normal"
+                            >
+                              <Badge variant="outline" className="cursor-pointer">
+                                {shipment.id}
+                              </Badge>
+                            </Button>
+                          ) : (
+                            <Badge variant="outline">N/A</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{format(new Date(shipment.date), 'dd-MM-yyyy')}</TableCell>
+                        <TableCell>{shipment.invoiceNumber}</TableCell>
+                        <TableCell>{shipment.customerNumber}</TableCell>
+                        <TableCell>{shipment.orderNumber}</TableCell>
+                        <TableCell>{shipment.deliveryNumber}</TableCell>
+                        <TableCell>
+                          <div className="max-w-[200px] truncate" title={shipment.shipToAddress}>
+                            {shipment.shipToAddress}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewPdfAttachment(shipment)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                            <span className="sr-only">View Shipment</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
         </CardContent>
@@ -477,72 +489,79 @@ export default function ShipmentsTable() {
             </SheetDescription>
           </SheetHeader>
           <div className="py-6">
-            {sheetContent === 'tracking' && selectedShipment && (
-              <div className="space-y-4">
-                <div>
-                  <Label>Tracking Number</Label>
-                  <p className="font-medium">{selectedShipment.id}</p>
-                </div>
-                <div>
-                  <Label>Current Status</Label>
-                  <p className="font-medium">{selectedShipment.status || <Badge variant="secondary">Completed</Badge>}</p>
-                </div>
-                <div>
-                  <Label>Tracking History</Label>
-                  <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+    {sheetContent === 'tracking' && selectedShipment && (
+        <div className="space-y-4">
+            <div>
+                <Label>Tracking Number</Label>
+                <p className="font-medium">{selectedShipment.id}</p>
+            </div>
+            <div>
+                <Label>Current Status</Label>
+                <p className="font-medium">
+                    {selectedShipment.status || <Badge variant="secondary">Completed</Badge>}
+                </p>
+            </div>
+            <div>
+                <Label>Tracking History</Label>
+                <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                     {selectedShipment.trackingHistory ? (
-                      selectedShipment.trackingHistory.map((event, index) => (
-                        <div key={index} className="mb-4 last:mb-0">
-                          <p className="font-medium">{event.status}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(event.timestamp), 'dd-MM-yyyy HH:mm')}
-                          </p>
-                          <p className="text-sm">{event.location}</p>
-                        </div>
-                      ))
+                        selectedShipment.trackingHistory.map((event, index) => (
+                            <div key={index} className="mb-4 last:mb-0">
+                                <p className="font-medium">{event.status}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {format(new Date(event.timestamp), 'dd-MM-yyyy HH:mm')}
+                                </p>
+                                <p className="text-sm">{event.location}</p>
+                            </div>
+                        ))
                     ) : (
-                      <Accordion type="single" collapsible>
-  <AccordionItem value="item-1">
-    <AccordionTrigger>History</AccordionTrigger>
-    <AccordionContent>
-                      <p>No tracking history available.</p>
-                      </AccordionContent>
-  </AccordionItem>
-</Accordion>
+                        <Accordion type="single" collapsible>
+                            <AccordionItem value="item-1">
+                                <AccordionTrigger>History</AccordionTrigger>
+                                <AccordionContent>
+                                    <p>No tracking history available.</p>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
                     )}
-                    
-                  </ScrollArea>
-                </div>
-                <Label>Shipment Detail</Label>
-                <Card x-chunk="dashboard-01-chunk-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Revenue
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{selectedShipment.invoiceTotal}</div>
-              
-            </CardContent>
-          </Card>
-              </div>
-            )}
-            {sheetContent === 'pdf' && selectedShipment && (
-              <div className="space-y-4">
-                <div>
-                  <Label>PDF Attachment</Label>
-                  <p className="font-medium">{selectedShipment.pdfAttachment || 'N/A'}</p>
-                </div>
-                <div>
-                  <Button onClick={handleDownloadPdf}>
+                </ScrollArea>
+            </div>
+            <Label>Shipment Detail</Label>
+            <Card x-chunk="dashboard-01-chunk-0">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{selectedShipment.invoiceTotal}</div>
+                </CardContent>
+            </Card>
+        </div>
+    )}
+    {sheetContent === 'pdf' && selectedShipment && (
+        <div className="space-y-4">
+             <div>
+            <Label>PDF Attachment</Label>
+            <p className="font-medium">
+                {selectedShipment.fileUrl ? (
+                    <Badge variant="secondary" className="cursor-pointer">
+                        PDF Available
+                    </Badge>
+                ) : (
+                    'N/A'
+                )}
+            </p>
+        </div>
+            <div>
+                <Button onClick={handleDownloadPdf}>
                     <DownloadIcon className="mr-2 h-4 w-4" />
                     Download PDF
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
+                </Button>
+            </div>
+        </div>
+    )}
+</div>
+
         </SheetContent>
       </Sheet>
     </div>

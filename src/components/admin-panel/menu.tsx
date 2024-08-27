@@ -19,6 +19,7 @@ import {
 interface MenuProps {
   isOpen: boolean | undefined;
 }
+import { logout } from "@/services/authService";
 
 export function Menu({ isOpen }: MenuProps) {
   const pathname = usePathname();
@@ -26,6 +27,7 @@ export function Menu({ isOpen }: MenuProps) {
   const router = useRouter();
 
   const handleLogOut = () => {
+    logout();
     router.push("/");
   };
 
